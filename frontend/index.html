@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/fabric@latest/dist/index.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            margin: 0;
+            padding: 20px 0;
+            font-size: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        #canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #button-container {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        canvas {
+            border: 1px solid black;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Escribe un número de un digito</h1>
+    <div id="canvas-container">
+        <canvas id="canvasEl" width="280" height="280"></canvas>
+        <div id="button-container">
+            <button id="predictEl">Predecir</button>
+            <button id="clearEl">Borrar</button>
+        </div>
+    </div>
+
+    <script>
+        var neuralNetwork = undefined; 
+
+        const $ = (id) => document.getElementById(id);
+
+        const canvas = new fabric.Canvas(canvasEl, {
+            isDrawingMode: true,
+        });
+
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+
+        fabric.Object.prototype.transparentCorners = false;
+
+        var clearEl = $('clearEl');
+
+        clearEl.onclick = function () {
+            canvas.clear();
+        };
+
+        predictEl.onclick = function () {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+
+            tempCanvas.width = 28;
+            tempCanvas.height = 28;
+
+            const img = new Image();
+            img.src = canvas.toDataURL('image/png');
+
+            img.onload = function () {
+                tempCtx.drawImage(img, 0, 0, 28, 28);
+
+                const imageData = tempCtx.getImageData(0, 0, 28, 28);
+                const data = imageData.data;
+
+                var imgPixels = [];
+                for (let i = 0; i < data.length; i += 4) {
+                    const gray = data[i + 3];
+                    imgPixels.push(gray);
+                }
+
+                getOutput(neuralNetwork, imgPixels)
+            };
+        };
+
+        if (canvas.freeDrawingBrush) {
+            canvas.freeDrawingBrush.width = parseInt(10, 10) || 1;
+            canvas.freeDrawingBrush.shadow = new fabric.Shadow({
+                offsetX: 0,
+                offsetY: 0,
+                affectStroke: true,
+            });
+        }
+
+        async function getOutput(nn, x) {
+            fetch('/process_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ neuralNetwork: nn, input: x }),
+            })
+                .then(response => response.json())
+                .then(result => {
+                    console.log(result)
+                    return result;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        async function getNeuralNetwork() {
+            const response = await fetch('models/numberClassifier.json');
+            return response.json();
+        }
+        getNeuralNetwork()
+            .then(nn => {
+                neuralNetwork = nn;
+            })
+            .catch(error => console.error('Error al cargar el JSON:', error));
+
+    </script>
+</body>
+
+</html>
